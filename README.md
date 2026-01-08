@@ -30,11 +30,6 @@ The configuration is currently located in `config.c`. Check this file before com
 
 ### Option A: Windows
 1. **Prerequisites**: Ensure you have MinGW (GCC) installed.
-2. **Easy Start**:
-   - Double-click `build_and_run.bat`.
-   - It will compile the code and start the server automatically.
-   
-   *Or manually via terminal:*
    ```powershell
    gcc -O2 -o output.exe main.c proxy.c config.c utils.c -lws2_32
    .\output.exe
@@ -64,3 +59,4 @@ The configuration is currently located in `config.c`. Check this file before com
   - Check `backend_ip` in `config.c`.
   - Ensure Firewall (Windows/Linux) allows entering traffic on UDP 30120.
   - In Codespaces, go to the **PORTS** tab and set Port 30120 to **Public**.
+
