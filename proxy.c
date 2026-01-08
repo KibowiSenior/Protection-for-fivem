@@ -99,10 +99,12 @@ void cleanup_inactive_sessions(int timeout_sec) {
 // --- Main Proxy Loop ---
 
 void start_proxy_server(const ProxyConfig *config) {
+#ifdef _WIN32
   WSADATA wsaData;
   if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
     fail_with_message("WSAStartup failed");
   }
+#endif
 
   // Setup Backend Address
   memset(&backend_addr_struct, 0, sizeof(backend_addr_struct));
@@ -162,14 +164,19 @@ void start_proxy_server(const ProxyConfig *config) {
                                 // fine for WinSock. max_fd+1 for linux
 
     if (activity == SOCKET_ERROR) {
+#ifdef _WIN32
       log_message(LOG_ERROR, "Select error: %d", WSAGetLastError());
+#else
+      log_message(LOG_ERROR, "Select error"); // perror would print errno
+#endif
       break;
     }
 
     // --- Handle Main Socket (Client -> Proxy) ---
     if (FD_ISSET(main_socket, &read_fds)) {
       struct sockaddr_in client_addr;
-      int client_len = sizeof(client_addr);
+      socklen_t client_len =
+          sizeof(client_addr); // socklen_t is safer for portable code
       int len = recvfrom(main_socket, buffer, sizeof(buffer), 0,
                          (struct sockaddr *)&client_addr, &client_len);
 
@@ -221,14 +228,27 @@ void start_proxy_server(const ProxyConfig *config) {
           } else {
             sessions[i].last_activity = time(NULL);
           }
-        } else if (len == 0 || (len == SOCKET_ERROR &&
-                                WSAGetLastError() == WSAECONNRESET)) {
-          // Backend closed connection or unreachable (ICMP Port Unreachable)
-          // Close session? Maybe backend crashed or just restarting.
-          // For UDP, connection reset usually means destination unreachable.
-          log_message(LOG_WARNING, "Backend unreachable for session %d", i);
-          closesocket(sessions[i].backend_socket);
-          sessions[i].active = 0;
+        } else if (len == 0 ||
+                   (len ==
+                    SOCKET_ERROR)) { // Removed WSA check specifically here for
+                                     // brevity, logic mostly same
+#ifdef _WIN32
+          int err = WSAGetLastError();
+          if (err == WSAECONNRESET) {
+#else
+          // Linux recv returns -1 and errno set. 0 is closure.
+          // UDP doesn't really have "closure" but ICMP errors might trigger
+          // generic read error
+          int err = 0; // dummy
+          if (1) {
+#endif
+            // Backend closed connection or unreachable (ICMP Port Unreachable)
+            // Close session? Maybe backend crashed or just restarting.
+            // For UDP, connection reset usually means destination unreachable.
+            log_message(LOG_WARNING, "Backend unreachable for session %d", i);
+            closesocket(sessions[i].backend_socket);
+            sessions[i].active = 0;
+          }
         }
       }
     }
@@ -237,5 +257,7 @@ void start_proxy_server(const ProxyConfig *config) {
   }
 
   closesocket(main_socket);
+#ifdef _WIN32
   WSACleanup();
+#endif
 }
