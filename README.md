@@ -58,6 +58,6 @@ The configuration is currently located in `config.c`. Check this file before com
 - **Players can't connect**:
   - Check `backend_ip` in `config.c`.
   - Ensure Firewall (Windows/Linux) allows entering traffic on UDP 30120.
-  - In Codespaces, go to the **PORTS** tab and set Port 30120 to **Public**.
+
 
 
